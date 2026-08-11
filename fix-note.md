@@ -1,0 +1,1 @@
+Build fix: Globe event handlers will use explicit any event annotations and Three.js typing fallback.
