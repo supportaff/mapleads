@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import type { ThreeEvent } from '@react-three/fiber';
 
 const regions = [
   { name: 'India', lat: 22.5, lon: 79, scale: 1.08 },
@@ -25,7 +26,8 @@ function RegionMarker({ region, selected, onClick }: { region: typeof regions[0]
   const ref = useRef<THREE.Mesh>(null);
   const pos = latLon(region.lat, region.lon);
   useFrame(({ clock }) => { if (ref.current) { const s = selected ? 1.28 + Math.sin(clock.elapsedTime * 4) * .08 : 1; ref.current.scale.setScalar(s * region.scale); } });
-  return <mesh ref={ref} position={pos} onClick={(e) => { e.stopPropagation(); onClick(); }}>
+  const handleClick = (e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onClick(); };
+  return <mesh ref={ref} position={pos} onClick={handleClick}>
     <sphereGeometry args={[selected ? .105 : .055, 16, 16]} /><meshStandardMaterial color={selected ? '#0f9f6e' : '#6f8b83'} emissive={selected ? '#0f9f6e' : '#24443c'} emissiveIntensity={selected ? 1.5 : .3} />
   </mesh>;
 }
@@ -36,7 +38,9 @@ function GlobeScene({ selected, onSelect }: { selected:string, onSelect:(name:st
   const dragging = useRef(false); const last = useRef({x:0,y:0});
   useEffect(() => { camera.position.set(0, .15, 6.1); }, [camera]);
   useFrame(() => { if (group.current && !dragging.current) group.current.rotation.y += .0018; });
-  return <group ref={group} onPointerDown={(e) => { dragging.current=true; last.current={x:e.clientX,y:e.clientY}; }} onPointerUp={() => dragging.current=false} onPointerMove={(e) => { if (!dragging.current || !group.current) return; group.current.rotation.y += (e.clientX-last.current.x)*.006; group.current.rotation.x += (e.clientY-last.current.y)*.003; group.current.rotation.x=Math.max(-.65,Math.min(.65,group.current.rotation.x)); last.current={x:e.clientX,y:e.clientY}; }}>
+  const down = (e: ThreeEvent<PointerEvent>) => { dragging.current=true; last.current={x:e.clientX,y:e.clientY}; };
+  const move = (e: ThreeEvent<PointerEvent>) => { if (!dragging.current || !group.current) return; group.current.rotation.y += (e.clientX-last.current.x)*.006; group.current.rotation.x += (e.clientY-last.current.y)*.003; group.current.rotation.x=Math.max(-.65,Math.min(.65,group.current.rotation.x)); last.current={x:e.clientX,y:e.clientY}; };
+  return <group ref={group} onPointerDown={down} onPointerUp={() => { dragging.current=false; }} onPointerMove={move}>
     <mesh><sphereGeometry args={[2, 64, 64]} /><meshStandardMaterial color="#eaf2ef" roughness={1} metalness={0} /></mesh>
     <mesh><sphereGeometry args={[2.015, 48, 48]} /><meshBasicMaterial color="#6e8e83" wireframe transparent opacity={.17} /></mesh>
     <mesh><sphereGeometry args={[2.03, 96, 96]} /><meshBasicMaterial color="#b9d0c8" transparent opacity={.06} wireframe /></mesh>
