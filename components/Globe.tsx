@@ -13,8 +13,7 @@ type CountryFeature = Feature<Geometry, { name?: string; NAME?: string; ADMIN?: 
 type Topology = { type: 'Topology'; objects: { countries: unknown }; arcs: unknown[]; transform?: unknown };
 
 const fallbackNames: Record<string, string> = {
-  '356': 'India', '840': 'United States', '124': 'Canada', '826': 'United Kingdom',
-  '36': 'Australia', '276': 'Germany', '392': 'Japan', '76': 'Brazil', '156': 'China'
+  '356': 'India', '840': 'United States', '124': 'Canada', '826': 'United Kingdom', '36': 'Australia', '276': 'Germany', '392': 'Japan', '76': 'Brazil', '156': 'China'
 };
 
 export default function Globe({ location, onLocation }: Props) {
@@ -28,31 +27,30 @@ export default function Globe({ location, onLocation }: Props) {
     const p = (d as CountryFeature).properties || {};
     const raw = p.name || p.NAME || p.ADMIN || p.NAME_EN;
     if (raw) return raw;
-    const id = String((d as CountryFeature).id ?? '');
-    return fallbackNames[id] || `Region ${id}`;
+    return fallbackNames[String((d as CountryFeature).id ?? '')] || 'Region';
   };
-
   const isSelected = (d: object) => nameOf(d).toLowerCase() === location.toLowerCase();
 
-  return <div className="globe">
+  return <div className="globe flat-map">
     <GlobeGL
       backgroundColor="rgba(255,255,255,0)"
       globeImageUrl=""
       showGlobe={false}
       polygonsData={geo}
-      polygonAltitude={(d: object) => isSelected(d) ? 0.035 : 0.008}
-      polygonCapColor={(d: object) => isSelected(d) ? '#b8ead7' : '#ffffff'}
-      polygonSideColor={(d: object) => isSelected(d) ? '#0f9f6e' : '#d4e4de'}
-      polygonStrokeColor={(d: object) => isSelected(d) ? '#087c56' : '#7fb6a1'}
+      polygonAltitude={(d: object) => isSelected(d) ? 0.012 : 0.002}
+      polygonCapColor={(d: object) => isSelected(d) ? '#c8f0df' : '#ffffff'}
+      polygonSideColor={(d: object) => isSelected(d) ? '#0f9f6e' : '#d9ebe4'}
+      polygonStrokeColor={(d: object) => isSelected(d) ? '#087c56' : '#83bda7'}
       polygonLabel={(d: object) => `<div style="font-family:system-ui;padding:7px 10px;border:1px solid #d7e8e0;border-radius:8px;background:#fff;color:#17352b"><b>${nameOf(d)}</b><br><small>Click to select this region</small></div>`}
       onPolygonClick={(d: object) => onLocation(nameOf(d))}
       onPolygonHover={() => {}}
       polygonsTransitionDuration={180}
       showAtmosphere={false}
       enablePointerInteraction
-      animateIn
-      rendererConfig={{ antialias: true, alpha: true, preserveDrawingBuffer: false }}
+      animateIn={false}
+      rendererConfig={{ antialias: true, alpha: true }}
+      controlsOptions={{ enableRotate: false, enableZoom: true, enablePan: true }}
     />
-    <div className="globe-overlay"><span>SELECT A REGION</span><b>{location}</b><small>Click a bordered region to search it</small></div>
+    <div className="globe-overlay"><span>SELECT A REGION</span><b>{location}</b><small>Choose a country from the list or click its border on the map</small></div>
   </div>;
 }
