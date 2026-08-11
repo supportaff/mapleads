@@ -49,7 +49,6 @@ export default function Globe({ location, onLocation }: Props) {
       enablePointerInteraction
       animateIn={false}
       rendererConfig={{ antialias: true, alpha: true }}
-      controlsOptions={{ enableRotate: false, enableZoom: true, enablePan: true }}
     />
     <div className="globe-overlay"><span>SELECT A REGION</span><b>{location}</b><small>Choose a country from the list or click its border on the map</small></div>
   </div>;
