@@ -1,14 +1,19 @@
 import { NextResponse } from 'next/server';
 
 const PLACE_FIELDS = [
-  'places.id','places.displayName','places.formattedAddress','places.nationalPhoneNumber',
-  'places.rating','places.userRatingCount','places.types','places.websiteUri',
-  'places.businessStatus','places.regularOpeningHours','places.googleMapsUri'
+  'places.id','places.displayName','places.formattedAddress','places.addressComponents','places.nationalPhoneNumber',
+  'places.rating','places.userRatingCount','places.types','places.websiteUri','places.businessStatus',
+  'places.regularOpeningHours','places.googleMapsUri'
 ].join(',');
 
-function getCityState(address = '') {
-  const parts = address.split(',').map(s => s.trim()).filter(Boolean);
-  return { city: parts.at(-3) || parts.at(-2) || '', state: parts.at(-2) || '', zip_code: (address.match(/\\b\\d{5,6}\\b/) || [''])[0] };
+function addressParts(place: any) {
+  const components = place.addressComponents || [];
+  const find = (types: string[]) => components.find((c: any) => types.some(t => c.types?.includes(t)))?.longText || '';
+  return {
+    city: find(['locality','postal_town','administrative_area_level_2']),
+    state: find(['administrative_area_level_1']),
+    zip_code: find(['postal_code'])
+  };
 }
 
 export async function POST(request: Request) {
@@ -16,30 +21,33 @@ export async function POST(request: Request) {
     const body = await request.json();
     const query = String(body.query || '').trim();
     const location = String(body.location || '').trim();
-    const limit = Math.min(Math.max(Number(body.limit || 20), 1), 100);
-    const minReviews = Number(body.minReviews || 0);
+    const limit = Math.min(Math.max(Number(body.limit || 20), 1), 20);
+    const minReviews = Math.max(Number(body.minReviews || 0), 0);
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
 
     if (!query || !location) return NextResponse.json({ error: 'Query and location are required.' }, { status: 400 });
     if (!apiKey) return NextResponse.json({ error: 'GOOGLE_MAPS_API_KEY is not configured. Add it to Vercel Environment Variables.' }, { status: 503 });
 
     const search = await fetch('https://places.googleapis.com/v1/places:searchText', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': apiKey, 'X-Goog-FieldMask': PLACE_FIELDS },
-      body: JSON.stringify({ textQuery: `${query} in ${location}`, pageSize: Math.min(limit, 20), languageCode: 'en' }),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': apiKey, 'X-Goog-FieldMask': PLACE_FIELDS },
+      body: JSON.stringify({ textQuery: `${query} in ${location}`, pageSize: limit, languageCode: 'en' }),
       cache: 'no-store'
     });
+
     if (!search.ok) return NextResponse.json({ error: `Google Places search failed (${search.status}).`, details: await search.text() }, { status: 502 });
 
     const data = await search.json();
     const places = (data.places || []).filter((p: any) => Number(p.userRatingCount || 0) >= minReviews).slice(0, limit);
     const leads = places.map((p: any) => {
-      const address = p.formattedAddress || '';
-      const { city, state, zip_code } = getCityState(address);
+      const { city, state, zip_code } = addressParts(p);
       const website = p.websiteUri || '';
+      let domain = '';
+      try { domain = website ? new URL(website).hostname.replace(/^www\./, '') : ''; } catch {}
       return {
         query, name: p.displayName?.text || '', phone: p.nationalPhoneNumber || '', review_count: p.userRatingCount || 0,
-        rating: p.rating || null, categories: p.types || [], city, state, website, domain: website ? new URL(website).hostname.replace(/^www\\./, '') : '',
-        email: '', address, business_status: p.businessStatus || '', claimed: null,
+        rating: p.rating || null, categories: p.types || [], city, state, website, domain, email: '',
+        address: p.formattedAddress || '', business_status: p.businessStatus || '', claimed: null,
         working_hours: p.regularOpeningHours?.weekdayDescriptions || [], google_maps_url: p.googleMapsUri || '', zip_code,
         place_id: p.id || ''
       };
